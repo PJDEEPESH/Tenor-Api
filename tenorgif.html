@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIF Search and Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        #search-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #search-form {
+            display: flex;
+            width: 100%;
+            max-width: 500px;
+        }
+        #search-input {
+            flex-grow: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px 0 0 4px;
+        }
+        #search-form button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+        }
+        #suggestions {
+            width: 100%;
+            max-width: 500px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            display: none;
+        }
+        #suggestions div {
+            padding: 10px;
+            cursor: pointer;
+        }
+        #suggestions div:hover {
+            background-color: #f0f0f0;
+        }
+        #gif-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .gif-item {
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .gif-item:hover {
+            transform: translateY(-5px);
+        }
+        .gif-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .gif-info {
+            padding: 10px;
+        }
+        .gif-info h3 {
+            margin: 0;
+            font-size: 14px;
+            color: #333;
+        }
+        .gif-info p {
+            margin: 5px 0 0;
+            font-size: 12px;
+            color: #666;
+        }
+        #full-size-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            z-index: 1000;
+        }
+        #full-size-gif {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 90%;
+            max-height: 90%;
+        }
+        #close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 30px;
+            color: white;
+            cursor: pointer;
+        }
+        #hashtags {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        #metadata {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        #share-options {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #share-options button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #share-options button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>GIF Search and Analysis</h1>
+    <div id="search-container">
+        <form id="search-form">
+            <input type="text" id="search-input" placeholder="Search for GIFs" required>
+            <button type="submit">Search</button>
+        </form>
+        <div id="suggestions"></div>
+    </div>
+    <div id="gif-container"></div>
+    <div id="full-size-modal">
+        <span id="close-modal">&times;</span>
+        <img id="full-size-gif" src="" alt="Full-size GIF">
+        <div id="hashtags"></div>
+        <div id="metadata"></div>
+        <div id="share-options">
+            <button id="share-twitter">Share on Twitter</button>
+            <button id="share-facebook">Share on Facebook</button>
+            <button id="copy-url">Copy URL</button>
+        </div>
+    </div>
+
+    <script>
+        const apiKey = 'AIzaSyBqUzvrt_CgP8GONRGJ1c9_blqBjcwaa70';
+
+        async function searchTenor(searchTerm) {
+            const limit = 20;
+            const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(searchTerm)}&key=${apiKey}&client_key=my_test_app&limit=${limit}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                return data.results;
+            } catch (error) {
+                console.error('Error searching Tenor:', error);
+            }
+        }
+
+        async function getSuggestions(searchTerm) {
+            const url = `https://tenor.googleapis.com/v2/autocomplete?q=${encodeURIComponent(searchTerm)}&key=${apiKey}&client_key=my_test_app`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                return data.results;
+            } catch (error) {
+                console.error('Error fetching suggestions:', error);
+            }
+        }
+
+        function displayResults(results) {
+            const container = document.getElementById('gif-container');
+            container.innerHTML = '';
+            
+            results.forEach((result, index) => {
+                const gifItem = document.createElement('div');
+                gifItem.className = 'gif-item';
+                
+                const img = document.createElement('img');
+                img.src = result.media_formats.tinygif.url;
+                img.dataset.fullSizeUrl = result.media_formats.gif.url;
+                img.dataset.id = result.id;
+                img.dataset.hashtags = result.tags.join(', ');
+                img.dataset.views = result.view_count || 'N/A';
+                img.dataset.likes = result.like_count || 'N/A';
+                img.addEventListener('click', handleGifClick);
+                
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'gif-info';
+                
+                const title = document.createElement('h3');
+                title.textContent = result.content_description || 'Untitled GIF';
+                
+                const rank = document.createElement('p');
+                rank.textContent = `Rank: ${index + 1}`;
+                
+                const views = document.createElement('p');
+                views.textContent = `Views: ${img.dataset.views}`;
+                
+                const likes = document.createElement('p');
+                likes.textContent = `Likes: ${img.dataset.likes}`;
+                
+                infoDiv.appendChild(title);
+                infoDiv.appendChild(rank);
+                infoDiv.appendChild(views);
+                infoDiv.appendChild(likes);
+                
+                gifItem.appendChild(img);
+                gifItem.appendChild(infoDiv);
+                container.appendChild(gifItem);
+            });
+
+            // Log results for analysis
+            logRankingAnalysis(results);
+        }
+
+        function handleGifClick(event) {
+            const fullSizeUrl = event.target.dataset.fullSizeUrl;
+            const hashtags = event.target.dataset.hashtags;
+            const metadata = `Views: ${event.target.dataset.views}, Likes: ${event.target.dataset.likes}`;
+            displayFullSizeGif(fullSizeUrl, hashtags, metadata);
+            shareGif(event.target.dataset.id);
+        }
+
+        function displayFullSizeGif(url, hashtags, metadata) {
+            const modal = document.getElementById('full-size-modal');
+            const fullSizeGif = document.getElementById('full-size-gif');
+            const hashtagsDiv = document.getElementById('hashtags');
+            const metadataDiv = document.getElementById('metadata');
+            fullSizeGif.src = url;
+            hashtagsDiv.textContent = `Hashtags: ${hashtags}`;
+            metadataDiv.textContent = `Metadata: ${metadata}`;
+            modal.style.display = 'block';
+
+            // Set up share buttons
+            document.getElementById('share-twitter').onclick = () => shareOnTwitter(url);
+            document.getElementById('share-facebook').onclick = () => shareOnFacebook(url);
+            document.getElementById('copy-url').onclick = () => copyUrlToClipboard(url);
+        }
+
+        function shareOnTwitter(url) {
+            const twitterUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}`;
+            window.open(twitterUrl, '_blank');
+        }
+
+        function shareOnFacebook(url) {
+            const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+            window.open(facebookUrl, '_blank');
+        }
+
+        function copyUrlToClipboard(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('URL copied to clipboard!');
+            }, (err) => {
+                console.error('Failed to copy URL: ', err);
+            });
+        }
+
+        async function shareGif(gifId) {
+            const url = `https://tenor.googleapis.com/v2/registershare?id=${gifId}&key=${apiKey}&client_key=my_test_app`;
+            
+            try {
+                await fetch(url);
+                console.log('Share event registered successfully');
+            } catch (error) {
+                console.error('Error registering share event:', error);
+            }
+        }
+
+        const searchInput = document.getElementById('search-input');
+        const suggestionsDiv = document.getElementById('suggestions');
+
+        searchInput.addEventListener('input', async (event) => {
+            const searchTerm = event.target.value;
+            if (searchTerm.length > 2) {
+                const suggestions = await getSuggestions(searchTerm);
+                displaySuggestions(suggestions);
+            } else {
+                suggestionsDiv.style.display = 'none';
+            }
+        });
+
+        function displaySuggestions(suggestions) {
+            suggestionsDiv.innerHTML = '';
+            if (suggestions && suggestions.length > 0) {
+                suggestions.forEach(suggestion => {
+                    const div = document.createElement('div');
+                    div.textContent = suggestion;
+                    div.addEventListener('click', () => {
+                        searchInput.value = suggestion;
+                        suggestionsDiv.style.display = 'none';
+                        performSearch(suggestion);
+                    });
+                    suggestionsDiv.appendChild(div);
+                });
+                suggestionsDiv.style.display = 'block';
+            } else {
+                suggestionsDiv.style.display = 'none';
+            }
+        }
+
+        async function performSearch(searchTerm) {
+            const results = await searchTenor(searchTerm);
+            displayResults(results);
+        }
+
+        document.getElementById('search-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const searchTerm = document.getElementById('search-input').value;
+            performSearch(searchTerm);
+        });
+
+        document.getElementById('close-modal').addEventListener('click', () => {
+            document.getElementById('full-size-modal').style.display = 'none';
+        });
+
+        // Initialize with a default search
+        performSearch('excited');
+
+        // Function to log ranking analysis
+        function logRankingAnalysis(results) {
+            console.log('Ranking Analysis:');
+            results.forEach((result, index) => {
+                console.log(`Rank ${index + 1}:`);
+                console.log(`ID: ${result.id}`);
+                console.log(`Description: ${result.content_description || 'No Description'}`);
+                console.log(`Views: ${result.view_count || 'N/A'}`);
+                console.log(`Likes: ${result.like_count || 'N/A'}`);
+                console.log('-------------------------');
+            });
+        }
+    </script>
+</body>
+</html>
