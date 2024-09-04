@@ -12,6 +12,7 @@ This project demonstrates a simple web application that allows users to search f
 
 To run this project locally, follow these steps:
 
+
 1. **Clone the Repository:**
 
     ```bash
