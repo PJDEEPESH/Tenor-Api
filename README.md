@@ -1,3 +1,5 @@
+
+
 # **Tenor GIF Search Application**
 
 This project demonstrates a simple web application that allows users to search for GIFs using the [Tenor API](https://tenor.com/gifapi) directly from a web interface. The application is built using HTML and JavaScript and leverages the Tenor API to fetch and display GIFs based on user queries.
